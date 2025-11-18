@@ -1,12 +1,11 @@
 package com.forest.forest_backend.controller;
 
 
-import com.forest.forest_backend.entity.category;
+import com.forest.forest_backend.entity.Category;
 import com.forest.forest_backend.repository.CategoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 
 @RestController
@@ -19,8 +18,13 @@ public class CategoryController {
             this.categoryRepository=categoryRepository;
     }
     @GetMapping
-    public List<category> getAllCategories(){
+    public List<Category> getAllCategories(){
         return categoryRepository.findAll();
 
+    }
+
+    @PostMapping
+    public Category createCategory(@RequestBody Category category){
+        return categoryRepository.save(category);
     }
 }

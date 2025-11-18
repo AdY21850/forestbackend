@@ -1,11 +1,11 @@
 package com.forest.forest_backend.repository;
 
-import com.forest.forest_backend.entity.category;
+import com.forest.forest_backend.entity.Category;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
 
-public interface CategoryRepository extends JpaRepository<category,Long>{
+public interface CategoryRepository extends JpaRepository<Category,Long>{
 
 }
