@@ -22,8 +22,7 @@ public class CartController {
          this. userRepository=userRepository;
          this. productRepository = productRepository;
      }
-     @PostMapping
-
+     @PostMapping("/add")
      public CartItem addToCart(@RequestParam Long userId,
                                @RequestParam Long productId,
                                @RequestParam int quantity){
