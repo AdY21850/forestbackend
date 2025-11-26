@@ -4,6 +4,7 @@ COPY . .
 RUN mvn clean package -DskipTests
 
 # 2. Run Stage
-FROM openjdk:17-jdk-slim
+# We are changing this line to use a stable image
+FROM eclipse-temurin:17-jdk-jammy
 COPY --from=build /target/forest-backend-0.0.1-SNAPSHOT.jar app.jar
 ENTRYPOINT ["java","-jar","app.jar"]
