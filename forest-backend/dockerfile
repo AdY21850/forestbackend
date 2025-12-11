@@ -1,14 +1,21 @@
-# Use a lightweight Java 17 image
-FROM eclipse-temurin:17-jdk-alpine
+# 1. Use an official Java 21 runtime as a parent image
+FROM eclipse-temurin:21-jdk-alpine
 
-# Set working directory
-WORKDIR /app
+# 2. Add a volume pointing to /tmp (optional but good practice for Spring Boot)
+VOLUME /tmp
 
-# Copy JAR from target folder into the image
-COPY target/*.jar app.jar
+# 3. The application's jar file (matches the one created by Maven/Gradle)
+ARG JAR_FILE=target/*.jar
 
-# Expose port 8080 (Render uses 8080)
-EXPOSE 8080
+# 4. Copy the jar file to the container
+COPY ${JAR_FILE} app.jar
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# -------------------------------------------------------
+# 🔴 THE FIX FOR YOUR EMAIL ERROR
+# This environment variable forces Java to use IPv4 inside the container.
+# This prevents the Gmail connection from hanging/timing out.
+# -------------------------------------------------------
+ENV JAVA_TOOL_OPTIONS="-Djava.net.preferIPv4Stack=true"
+
+# 5. Execute the application
+ENTRYPOINT ["java", "-jar", "/app.jar"]
