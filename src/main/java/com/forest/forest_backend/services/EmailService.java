@@ -1,42 +1,38 @@
 package com.forest.forest_backend.services;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+
+import com.resend.Resend;
+import com.resend.services.emails.models.CreateEmailOptions;
 
 @Service
 public class EmailService {
 
-    @Autowired
-    private JavaMailSender mailSender;
+    @Value("${RESEND_API_KEY}")
+    private String apiKey;
 
-    // @Async is CRITICAL for industry-ready apps.
-    // Sending email is slow. This tells Spring to run it in the background
-    // so the user doesn't have to wait for the UI to unfreeze.
     @Async
     public void sendOtpEmail(String toEmail, String otpCode) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(toEmail);
-        message.setSubject("Your Forest App Verification Code");
-        message.setText("Hello,\n\n" +
-                "Your verification code for Forest is: " + otpCode + "\n\n" +
-                "This code is valid for 10 minutes.\n" +
-                "Welcome to the community!");
+        try {
+            Resend resend = new Resend(apiKey);
 
-        mailSender.send(message);
-        System.out.println("OTP Email sent to " + toEmail);
-    }
+            CreateEmailOptions params = CreateEmailOptions.builder()
+                    .from("Forest App <onboarding@resend.dev>")  // FREE FROM DOMAIN
+                    .to(toEmail)
+                    .subject("Your Forest App Verification Code")
+                    .html("<p>Hello,</p>" +
+                            "<p>Your OTP is: <strong>" + otpCode + "</strong></p>" +
+                            "<p>Valid for 10 minutes.</p>")
+                    .build();
 
-    @Async
-    public void sendOrderConfirmation(String toEmail, String orderId) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(toEmail);
-        message.setSubject("Order Confirmed: #" + orderId);
-        message.setText("Great news! Your order has been placed successfully.\n" +
-                "We will notify you when it ships.");
+            resend.emails().send(params);
 
-        mailSender.send(message);
+            System.out.println("OTP email sent to " + toEmail);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Error sending email: " + e.getMessage());
+        }
     }
 }
