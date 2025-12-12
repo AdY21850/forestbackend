@@ -1,42 +1,45 @@
 package com.forest.forest_backend.services;
 
+import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 public class EmailService {
 
-    @Value("${RESEND_API_KEY}")
-    private String apiKey;
+    private final JavaMailSender mailSender;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    @Value("${MAIL_FROM}")
+    private String from;
 
+    public EmailService(JavaMailSender mailSender) {
+        this.mailSender = mailSender;
+    }
+
+    // -----------------------------
+    // SEND OTP EMAIL
+    // -----------------------------
     @Async
     public void sendOtpEmail(String toEmail, String otpCode) {
         try {
-            String url = "https://api.resend.com/emails";
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            Map<String, Object> body = new HashMap<>();
-            body.put("from", "Forest App <onboarding@resend.dev>");
-            body.put("to", toEmail);
-            body.put("subject", "Your Forest App Verification Code");
-            body.put("html", "<p>Your OTP is: <strong>" + otpCode + "</strong></p>");
+            helper.setFrom(from);
+            helper.setTo(toEmail);
+            helper.setSubject("Your Forest Cosmetics Verification Code");
+            helper.setText(
+                    "<p>Hello,</p>" +
+                            "<p>Your OTP is: <strong>" + otpCode + "</strong></p>" +
+                            "<p>This OTP is valid for 10 minutes.</p>",
+                    true
+            );
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(apiKey);
-
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-
-            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
-
-            System.out.println("Resend response: " + response.getBody());
+            mailSender.send(message);
+            System.out.println("OTP email sent to " + toEmail);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -44,27 +47,26 @@ public class EmailService {
         }
     }
 
+    // -----------------------------
+    // SEND ORDER CONFIRMATION
+    // -----------------------------
     @Async
     public void sendOrderConfirmation(String toEmail, String orderId) {
         try {
-            String url = "https://api.resend.com/emails";
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            Map<String, Object> body = new HashMap<>();
-            body.put("from", "Forest App <onboarding@resend.dev>");
-            body.put("to", toEmail);
-            body.put("subject", "Order Confirmed: #" + orderId);
-            body.put("html",
-                    "<p>Your order <strong>" + orderId + "</strong> has been placed!</p>");
+            helper.setFrom(from);
+            helper.setTo(toEmail);
+            helper.setSubject("Order Confirmed: #" + orderId);
+            helper.setText(
+                    "<p>Thank you for your order!</p>" +
+                            "<p>Your order <strong>" + orderId + "</strong> has been placed successfully.</p>",
+                    true
+            );
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(apiKey);
-
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-
-            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
-
-            System.out.println("Resend response: " + response.getBody());
+            mailSender.send(message);
+            System.out.println("Order confirmation email sent to " + toEmail);
 
         } catch (Exception e) {
             e.printStackTrace();
