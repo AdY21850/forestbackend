@@ -15,6 +15,12 @@ public class EmailService {
     @Value("${MAIL_FROM}")
     private String from;
 
+    @Value("${MAIL_USERNAME:NULL}")
+    private String username;
+
+    @Value("${MAIL_PASSWORD:NULL}")
+    private String password;
+
     public EmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
@@ -25,8 +31,14 @@ public class EmailService {
     @Async
     public void sendOtpEmail(String toEmail, String otpCode) {
         try {
+            // 🔎 DEBUG (temporary — REMOVE after success)
+            System.out.println("MAIL_USERNAME = " + username);
+            System.out.println("MAIL_PASSWORD = " + (password.equals("NULL") ? "NULL" : "PRESENT"));
+            System.out.println("MAIL_FROM = " + from);
+
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            MimeMessageHelper helper =
+                    new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, "UTF-8");
 
             helper.setFrom(from);
             helper.setTo(toEmail);
@@ -54,7 +66,8 @@ public class EmailService {
     public void sendOrderConfirmation(String toEmail, String orderId) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            MimeMessageHelper helper =
+                    new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, "UTF-8");
 
             helper.setFrom(from);
             helper.setTo(toEmail);
