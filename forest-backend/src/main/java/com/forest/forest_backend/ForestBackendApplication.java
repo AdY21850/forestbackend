@@ -8,10 +8,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 public class ForestBackendApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ForestBackendApplication.class, args);
-        System.setProperty("java.net.preferIPv4Stack", "true");
 
-        SpringApplication.run(ForestBackendApplication.class, args);
     }
 
 }
