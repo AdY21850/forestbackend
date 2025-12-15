@@ -1,28 +1,21 @@
 package com.forest.forest_backend.services;
 
-import jakarta.mail.internet.MimeMessage;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import com.forest.forest_backend.config.GmailAuthHelper;
+import com.google.api.services.gmail.Gmail;
+import com.google.api.services.gmail.model.Message;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private final Gmail gmail;
 
-    @Value("${MAIL_FROM}")
-    private String from;
-
-    @Value("${MAIL_USERNAME:NULL}")
-    private String username;
-
-    @Value("${MAIL_PASSWORD:NULL}")
-    private String password;
-
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
+    public EmailService() throws Exception {
+        this.gmail = GmailAuthHelper.authorize();
     }
 
     // -----------------------------
@@ -31,31 +24,24 @@ public class EmailService {
     @Async
     public void sendOtpEmail(String toEmail, String otpCode) {
         try {
-            // 🔎 DEBUG (temporary — REMOVE after success)
-            System.out.println("MAIL_USERNAME = " + username);
-            System.out.println("MAIL_PASSWORD = " + (password.equals("NULL") ? "NULL" : "PRESENT"));
-            System.out.println("MAIL_FROM = " + from);
+            String subject = "Your Forest Cosmetics Verification Code";
+            String body = """
+                    Hello,
 
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper =
-                    new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, "UTF-8");
+                    Your OTP is: %s
 
-            helper.setFrom(from);
-            helper.setTo(toEmail);
-            helper.setSubject("Your Forest Cosmetics Verification Code");
-            helper.setText(
-                    "<p>Hello,</p>" +
-                            "<p>Your OTP is: <strong>" + otpCode + "</strong></p>" +
-                            "<p>This OTP is valid for 10 minutes.</p>",
-                    true
-            );
+                    This OTP is valid for 10 minutes.
 
-            mailSender.send(message);
-            System.out.println("OTP email sent to " + toEmail);
+                    Regards,
+                    Forest Cosmetics
+                    """.formatted(otpCode);
+
+            sendEmail(toEmail, subject, body);
+            System.out.println("✅ OTP email sent to " + toEmail);
 
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("Error sending OTP email: " + e.getMessage());
+            System.out.println("❌ Error sending OTP email: " + e.getMessage());
         }
     }
 
@@ -65,25 +51,42 @@ public class EmailService {
     @Async
     public void sendOrderConfirmation(String toEmail, String orderId) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper =
-                    new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, "UTF-8");
+            String subject = "Order Confirmed: #" + orderId;
+            String body = """
+                    Thank you for your order!
 
-            helper.setFrom(from);
-            helper.setTo(toEmail);
-            helper.setSubject("Order Confirmed: #" + orderId);
-            helper.setText(
-                    "<p>Thank you for your order!</p>" +
-                            "<p>Your order <strong>" + orderId + "</strong> has been placed successfully.</p>",
-                    true
-            );
+                    Your order %s has been placed successfully.
 
-            mailSender.send(message);
-            System.out.println("Order confirmation email sent to " + toEmail);
+                    Regards,
+                    Forest Cosmetics
+                    """.formatted(orderId);
+
+            sendEmail(toEmail, subject, body);
+            System.out.println("✅ Order confirmation email sent to " + toEmail);
 
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("Error sending order email: " + e.getMessage());
+            System.out.println("❌ Error sending order email: " + e.getMessage());
         }
+    }
+
+    // -----------------------------
+    // CORE SEND METHOD (GMAIL API)
+    // -----------------------------
+    private void sendEmail(String to, String subject, String bodyText) throws Exception {
+
+        String emailContent =
+                "To: " + to + "\r\n" +
+                        "Subject: " + subject + "\r\n" +
+                        "Content-Type: text/plain; charset=UTF-8\r\n\r\n" +
+                        bodyText;
+
+        byte[] encodedEmail = Base64.getUrlEncoder()
+                .encode(emailContent.getBytes(StandardCharsets.UTF_8));
+
+        Message message = new Message();
+        message.setRaw(new String(encodedEmail));
+
+        gmail.users().messages().send("me", message).execute();
     }
 }
