@@ -4,66 +4,106 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.util.store.FileDataStoreFactory;
+import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.GmailScopes;
-import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
+import com.google.api.services.gmail.model.Message;
 
+import jakarta.mail.Session;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeMessage;
+
+import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileWriter;
-import java.nio.file.Files;
+import java.io.FileReader;
+import java.util.Base64;
 import java.util.Collections;
+import java.util.Properties;
 
 public class GmailAuthHelper {
 
+    // ✅ Railway volume (PERSISTENT)
     private static final String TOKENS_DIR = "/app/gmail-tokens";
-    private static final String CREDENTIALS_FILE = "src/main/resources/credentials.json";
+
+    // ✅ credentials.json mounted manually (NOT in git)
+    private static final String CREDENTIALS_FILE = "/app/credentials/credentials.json";
 
     public static Gmail authorize() throws Exception {
-
-        ensureTokenExists(); // 🔥 IMPORTANT
 
         var httpTransport = GoogleNetHttpTransport.newTrustedTransport();
         var jsonFactory = GsonFactory.getDefaultInstance();
 
-        var clientSecrets = com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
-                .load(jsonFactory, Files.newBufferedReader(new File(CREDENTIALS_FILE).toPath()));
+        File credentialsFile = new File(CREDENTIALS_FILE);
+        if (!credentialsFile.exists()) {
+            throw new IllegalStateException(
+                    "credentials.json not found at " + CREDENTIALS_FILE
+            );
+        }
 
-        var flow = new GoogleAuthorizationCodeFlow.Builder(
-                httpTransport,
-                jsonFactory,
-                clientSecrets,
-                Collections.singleton(GmailScopes.GMAIL_SEND)
-        )
-                .setDataStoreFactory(new FileDataStoreFactory(new File(TOKENS_DIR)))
-                .setAccessType("offline")
-                .build();
+        GoogleClientSecrets clientSecrets =
+                GoogleClientSecrets.load(jsonFactory, new FileReader(credentialsFile));
 
+        File tokenDir = new File(TOKENS_DIR);
+        if (!tokenDir.exists()) {
+            tokenDir.mkdirs();
+        }
+
+        GoogleAuthorizationCodeFlow flow =
+                new GoogleAuthorizationCodeFlow.Builder(
+                        httpTransport,
+                        jsonFactory,
+                        clientSecrets,
+                        Collections.singleton(GmailScopes.GMAIL_SEND)
+                )
+                        .setDataStoreFactory(new FileDataStoreFactory(tokenDir))
+                        .setAccessType("offline")
+                        .build();
+
+        // ❌ DO NOT use LocalServerReceiver on Railway
         Credential credential = flow.loadCredential("user");
+
+        if (credential == null) {
+            throw new IllegalStateException(
+                    "Gmail token missing. Generate token locally and mount it on Railway."
+            );
+        }
 
         return new Gmail.Builder(httpTransport, jsonFactory, credential)
                 .setApplicationName("Forest Backend Mailer")
                 .build();
     }
 
-    /**
-     * Writes token from ENV into Railway volume if missing
-     */
-    private static void ensureTokenExists() throws Exception {
-        File dir = new File(TOKENS_DIR);
-        if (!dir.exists()) dir.mkdirs();
+    // ✅ REQUIRED METHOD — YOU WERE MISSING THIS
+    public static void sendEmail(
+            Gmail service,
+            String fromEmail,
+            String toEmail,
+            String subject,
+            String bodyText
+    ) throws Exception {
 
-        File tokenFile = new File(dir, "StoredCredential");
+        Properties props = new Properties();
+        Session session = Session.getDefaultInstance(props, null);
 
-        if (!tokenFile.exists()) {
-            String tokenJson = System.getenv("GMAIL_TOKEN_JSON");
+        MimeMessage email = new MimeMessage(session);
+        email.setFrom(new InternetAddress(fromEmail));
+        email.addRecipient(
+                jakarta.mail.Message.RecipientType.TO,
+                new InternetAddress(toEmail)
+        );
+        email.setSubject(subject);
+        email.setText(bodyText);
 
-            if (tokenJson == null || tokenJson.isBlank()) {
-                throw new IllegalStateException("GMAIL_TOKEN_JSON env variable missing");
-            }
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        email.writeTo(buffer);
 
-            try (FileWriter writer = new FileWriter(tokenFile)) {
-                writer.write(tokenJson);
-            }
-        }
+        String encodedEmail = Base64.getUrlEncoder()
+                .encodeToString(buffer.toByteArray());
+
+        Message message = new Message();
+        message.setRaw(encodedEmail);
+
+        service.users().messages().send("me", message).execute();
     }
 }
