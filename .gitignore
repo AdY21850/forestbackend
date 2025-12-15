@@ -31,3 +31,13 @@ build/
 
 ### VS Code ###
 .vscode/
+# Google OAuth
+credentials.json
+*credentials*.json
+
+# Gmail tokens
+gmail-tokens/
+tokens/
+
+# Env / secrets
+.env
